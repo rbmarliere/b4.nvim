@@ -3,6 +3,13 @@ M.options = {}
 
 local defaults = {
 	log_level = "info",
+	use_terminal = {
+		enabled = false,
+		layout = {
+			win = 0,
+			split = "below",
+		},
+	},
 }
 
 local log_levels = { "trace", "debug", "info", "warn", "error", "fatal" }
@@ -24,8 +31,14 @@ end
 local set_commands = function()
 	local cmd = require("b4.cmd")
 	vim.api.nvim_create_user_command("B4", function(params)
-		local ret, stdout, stderr = cmd.b4(vim.split(params.args, " "))
-	end, { nargs = "*"})
+		if M.options.use_terminal.enabled then
+			local buf = vim.api.nvim_create_buf(false, true)
+			vim.api.nvim_open_win(buf, true, M.options.use_terminal.layout)
+			local chan = vim.fn.termopen("b4 " .. params.args)
+		else
+			local ret, stdout, stderr = cmd.b4(vim.split(params.args, " "))
+		end
+	end, { nargs = "*" })
 end
 
 M.setup = function(options)
