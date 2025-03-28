@@ -18,7 +18,7 @@ local cmd = function(cmd, ...)
 			log.debug("stdout:", vim.inspect(j:result()))
 			log.debug("stderr:", vim.inspect(j:stderr_result()))
 			if ret ~= 0 then
-				log.error("`", cmd, args, "` exited with", ret, " -- stderr:", stderr)
+				log.error("`", cmd, args, "` exited with", ret)
 			end
 		end,
 	}):sync()
