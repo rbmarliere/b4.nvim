@@ -9,11 +9,24 @@ M.get_current_branch = function()
 	return stdout[1]
 end
 
-M.read_branch_description = function(branch)
-	local ret, stdout, stderr = cmd.git("config", string.format("branch.%s.description", branch))
+M.read_branch_config = function(branch, config)
+	local ret, stdout, stderr = cmd.git("config", string.format("branch.%s.%s", branch, config))
 	assert(ret == 0)
 	assert(stdout ~= nil)
 	return stdout
+end
+
+M.read_branch_tracking = function(branch)
+	return M.read_branch_config(branch, "b4-tracking")
+end
+
+M.write_branch_tracking = function(branch, tracking)
+	local ret, stdout, stderr = cmd.git("config", "set", string.format("branch.%s.b4-tracking", branch), tracking)
+	return ret == 0
+end
+
+M.read_branch_description = function(branch)
+	return M.read_branch_config(branch, "description")
 end
 
 M.write_branch_description = function(branch, description)
