@@ -40,7 +40,7 @@ M.run = function(cmd)
 		end)
 	end
 	if M.winnr == nil or not vim.api.nvim_win_is_valid(M.winnr) then
-		M.winnr = vim.api.nvim_open_win(M.bufnr, true, config.options.terminal.layout)
+		M.winnr = vim.api.nvim_open_win(M.bufnr, true, config.options.layout)
 	end
 	vim.api.nvim_buf_call(M.bufnr, scroll_to_bottom)
 	vim.fn.chansend(M.job_id, cmd .. "\n")
