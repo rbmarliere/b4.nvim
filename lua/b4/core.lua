@@ -73,17 +73,18 @@ local open = function(bufname, lines, callback)
 	})
 end
 
-local is_prep_managed = function()
-	local ret, stdout, stderr = cmd.b4("prep", "--show-revision")
+local is_prep_managed = function(branch)
+	local ret, stdout, stderr = cmd.git("config", string.format("branch.%s.b4-prep-cover-strategy", branch))
 	return ret == 0
 end
 
 M.edit_deps = function()
-	if not is_prep_managed() then
+	-- TODO support other strategies (e.g. if "commit", tracking is kept in the commit aswell)
+	local branch = git.get_current_branch()
+	if not is_prep_managed(branch) then
 		log.error("This is not a prep-managed branch.")
 		return
 	end
-	local branch = git.get_current_branch()
 	local bufname = string.format("B4 Prerequisites (%s)", branch)
 
 	local tracking = vim.json.decode(table.concat(git.read_branch_tracking(branch)))
@@ -115,12 +116,12 @@ M.edit_deps = function()
 end
 
 M.edit_cover = function()
-	if not is_prep_managed() then
+	-- TODO support other strategies
+	local branch = git.get_current_branch()
+	if not is_prep_managed(branch) then
 		log.error("This is not a prep-managed branch.")
 		return
 	end
-	-- TODO support other strategies
-	local branch = git.get_current_branch()
 	local bufname = string.format("B4 Cover Letter (%s)", branch)
 	local description = git.read_branch_description(branch)
 	open(bufname, description, function()
