@@ -49,7 +49,13 @@ local open = function(bufname, lines, callback)
 	end
 
 	M.bufnr = vim.api.nvim_create_buf(false, false)
-	M.winnr = vim.api.nvim_open_win(M.bufnr, true, config.options.layout)
+	if config.options.window.new_tab then
+		vim.cmd("-tab new")
+		M.winnr = vim.api.nvim_get_current_win()
+		vim.api.nvim_win_set_buf(0, M.bufnr)
+	else
+		M.winnr = vim.api.nvim_open_win(M.bufnr, true, config.options.window.layout)
+	end
 	vim.api.nvim_set_option_value("buftype", "acwrite", { buf = M.bufnr })
 	vim.api.nvim_set_option_value("filetype", "gitcommit", { buf = M.bufnr })
 	vim.api.nvim_buf_set_name(M.bufnr, bufname)

@@ -4,8 +4,11 @@ M.options = {}
 
 local defaults = {
 	log_level = "info",
-	layout = {
-		split = "below",
+	window = {
+		new_tab = false,
+		layout = {
+			split = "below",
+		},
 	},
 }
 

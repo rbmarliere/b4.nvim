@@ -43,7 +43,14 @@ M.run = function(cmd)
 		end)
 	end
 	if M.winnr == nil or not vim.api.nvim_win_is_valid(M.winnr) then
-		M.winnr = vim.api.nvim_open_win(M.bufnr, true, config.options.layout)
+		if config.options.window.new_tab then
+			vim.cmd("-tab new")
+			M.winnr = vim.api.nvim_get_current_win()
+			vim.api.nvim_win_set_buf(0, M.bufnr)
+		else
+			M.winnr = vim.api.nvim_open_win(M.bufnr, true, config.options.window.layout)
+		end
+
 		vim.api.nvim_create_augroup("B4TerminalWin", { clear = true })
 		vim.api.nvim_create_autocmd("WinClosed", {
 			group = "B4TerminalWin",
