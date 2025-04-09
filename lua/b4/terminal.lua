@@ -1,9 +1,9 @@
 local M = {}
+local config = require("b4.config")
+
 M.bufnr = nil
 M.winnr = nil
 M.job_id = nil
-
-local config = require("b4.config")
 
 local scroll_to_bottom = function()
 	local info = vim.api.nvim_get_mode()
@@ -13,7 +13,10 @@ local scroll_to_bottom = function()
 end
 
 M.destroy = function()
-	if vim.api.nvim_buf_is_loaded(M.bufnr) then
+	if M.bufnr == nil then
+		return
+	end
+	if vim.api.nvim_buf_is_valid(M.bufnr) then
 		vim.api.nvim_buf_delete(M.bufnr, { force = true })
 		M.bufnr = nil
 	end
@@ -41,6 +44,15 @@ M.run = function(cmd)
 	end
 	if M.winnr == nil or not vim.api.nvim_win_is_valid(M.winnr) then
 		M.winnr = vim.api.nvim_open_win(M.bufnr, true, config.options.layout)
+		vim.api.nvim_create_augroup("B4TerminalWin", { clear = true })
+		vim.api.nvim_create_autocmd("WinClosed", {
+			group = "B4TerminalWin",
+			callback = function(args)
+				if tonumber(args.match) == M.winnr then
+					M.destroy()
+				end
+			end,
+		})
 	end
 	vim.api.nvim_buf_call(M.bufnr, scroll_to_bottom)
 	vim.fn.chansend(M.job_id, cmd .. "\n")
