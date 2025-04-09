@@ -81,6 +81,13 @@ end
 
 local is_prep_managed = function(branch)
 	local ret, stdout, stderr = cmd.git("config", string.format("branch.%s.b4-prep-cover-strategy", branch))
+	if stdout and stdout[1] ~= "branch-description" then
+		log.error("Only 'branch-description' b4-prep-cover-strategy is supported.")
+		return false
+	end
+	if ret > 0 then
+		log.error("This is not a prep-managed branch.")
+	end
 	return ret == 0
 end
 
@@ -88,7 +95,6 @@ M.edit_deps = function()
 	-- TODO support other strategies (e.g. if "commit", tracking is kept in the commit aswell)
 	local branch = git.get_current_branch()
 	if not is_prep_managed(branch) then
-		log.error("This is not a prep-managed branch.")
 		return
 	end
 	local bufname = string.format("B4 Prerequisites (%s)", branch)
@@ -125,7 +131,6 @@ M.edit_cover = function()
 	-- TODO support other strategies
 	local branch = git.get_current_branch()
 	if not is_prep_managed(branch) then
-		log.error("This is not a prep-managed branch.")
 		return
 	end
 	local bufname = string.format("B4 Cover Letter (%s)", branch)
