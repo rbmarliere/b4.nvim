@@ -7,6 +7,11 @@ local log = require("b4.log")
 M.bufnr = nil
 M.winnr = nil
 
+local notify_error = function(message)
+	log.error(message)
+	vim.notify(message, vim.log.levels.ERROR, { title = "b4.nvim" })
+end
+
 -- https://web.git.kernel.org/pub/scm/utils/b4/b4.git/tree/src/b4/ez.py?id=c25d17121045ab14bec8912d490ba764b515b370#n86
 local DEPS_HELPER = {
 	"",
@@ -93,13 +98,23 @@ end
 
 M.edit_deps = function()
 	-- TODO support other strategies (e.g. if "commit", tracking is kept in the commit aswell)
-	local branch = git.get_current_branch()
+	local branch, branch_err = git.get_current_branch()
+	if branch == nil then
+		return notify_error(branch_err)
+	end
 	if not is_prep_managed(branch) then
 		return
 	end
 	local bufname = string.format("B4 Prerequisites (%s)", branch)
 
-	local tracking = vim.json.decode(table.concat(git.read_branch_tracking(branch)))
+	local tracking_json, tracking_err = git.read_branch_tracking(branch)
+	if tracking_json == nil then
+		return notify_error(tracking_err)
+	end
+	local ok, tracking = pcall(vim.json.decode, table.concat(tracking_json))
+	if not ok then
+		return notify_error(string.format("could not decode b4 tracking for `%s`: %s", branch, tracking))
+	end
 	local content = tracking.series.prerequisites or {}
 	for _, ln in ipairs(DEPS_HELPER) do
 		table.insert(content, ln)
@@ -120,8 +135,11 @@ M.edit_deps = function()
 			::next::
 		end
 		tracking.series.prerequisites = new_content
-		if git.write_branch_tracking(branch, vim.json.encode(tracking)) then
+		local written, write_err = git.write_branch_tracking(branch, vim.json.encode(tracking))
+		if written then
 			vim.api.nvim_set_option_value("modified", false, { buf = M.bufnr })
+		else
+			notify_error(write_err)
 		end
 		return false
 	end)
@@ -129,16 +147,25 @@ end
 
 M.edit_cover = function()
 	-- TODO support other strategies
-	local branch = git.get_current_branch()
+	local branch, branch_err = git.get_current_branch()
+	if branch == nil then
+		return notify_error(branch_err)
+	end
 	if not is_prep_managed(branch) then
 		return
 	end
 	local bufname = string.format("B4 Cover Letter (%s)", branch)
-	local description = git.read_branch_description(branch)
+	local description, description_err = git.read_branch_description(branch)
+	if description == nil then
+		return notify_error(description_err)
+	end
 	open(bufname, description, function()
 		local new_content = table.concat(vim.api.nvim_buf_get_lines(M.bufnr, 0, -1, false), "\n")
-		if git.write_branch_description(branch, new_content) then
+		local written, write_err = git.write_branch_description(branch, new_content)
+		if written then
 			vim.api.nvim_set_option_value("modified", false, { buf = M.bufnr })
+		else
+			notify_error(write_err)
 		end
 		return false
 	end)
