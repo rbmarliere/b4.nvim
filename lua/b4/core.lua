@@ -3,8 +3,7 @@ local config = require("b4.config")
 local git = require("b4.git")
 local log = require("b4.log")
 
-M.bufnr = nil
-M.winnr = nil
+M.editors = {}
 
 local notify_error = function(message)
 	log.error(message)
@@ -46,41 +45,62 @@ local recognized = {
 	"^base%-commit:",
 }
 
-local open = function(bufname, lines, callback)
-	if M.bufnr ~= nil then
-		vim.api.nvim_set_current_win(M.winnr)
+local destroy = function(key)
+	local editor = M.editors[key]
+	if editor == nil then
 		return
 	end
 
-	M.bufnr = vim.api.nvim_create_buf(false, false)
+	if editor.bufnr and vim.api.nvim_buf_is_valid(editor.bufnr) then
+		vim.api.nvim_buf_delete(editor.bufnr, { force = true })
+	end
+
+	if editor.winnr and vim.api.nvim_win_is_valid(editor.winnr) then
+		vim.api.nvim_win_close(editor.winnr, true)
+	end
+
+	M.editors[key] = nil
+end
+
+local open = function(key, bufname, lines, callback)
+	local editor = M.editors[key]
+	if editor and editor.winnr and vim.api.nvim_win_is_valid(editor.winnr) then
+		vim.api.nvim_set_current_win(editor.winnr)
+		return editor.bufnr
+	end
+
+	if editor == nil or not vim.api.nvim_buf_is_valid(editor.bufnr) then
+		editor = { bufnr = vim.api.nvim_create_buf(false, false) }
+		M.editors[key] = editor
+		vim.api.nvim_set_option_value("buftype", "acwrite", { buf = editor.bufnr })
+		vim.api.nvim_set_option_value("filetype", "gitcommit", { buf = editor.bufnr })
+		vim.api.nvim_buf_set_name(editor.bufnr, bufname)
+		vim.api.nvim_buf_set_lines(editor.bufnr, 0, -1, false, lines)
+
+		vim.api.nvim_create_autocmd("BufWriteCmd", {
+			buffer = editor.bufnr,
+			callback = function()
+				return callback(editor.bufnr)
+			end,
+		})
+		vim.api.nvim_create_autocmd("WinClosed", {
+			callback = function(args)
+				if tonumber(args.match) == editor.winnr then
+					destroy(key)
+				end
+			end,
+		})
+	end
+
 	if config.options.window.new_tab then
 		vim.cmd("-tab new")
-		M.winnr = vim.api.nvim_get_current_win()
-		vim.api.nvim_win_set_buf(0, M.bufnr)
+		editor.winnr = vim.api.nvim_get_current_win()
+		vim.api.nvim_win_set_buf(0, editor.bufnr)
 	else
-		M.winnr = vim.api.nvim_open_win(M.bufnr, true, config.options.window.layout)
+		editor.winnr = vim.api.nvim_open_win(editor.bufnr, true, config.options.window.layout)
 	end
-	vim.api.nvim_set_option_value("buftype", "acwrite", { buf = M.bufnr })
-	vim.api.nvim_set_option_value("filetype", "gitcommit", { buf = M.bufnr })
-	vim.api.nvim_buf_set_name(M.bufnr, bufname)
-	vim.api.nvim_buf_set_lines(M.bufnr, 0, -1, false, lines)
 
-	vim.api.nvim_create_augroup("B4EditorWin", { clear = true })
-	vim.api.nvim_create_autocmd("BufWriteCmd", {
-		group = "B4EditorWin",
-		buffer = M.bufnr,
-		callback = callback,
-	})
-	vim.api.nvim_create_autocmd("WinClosed", {
-		group = "B4EditorWin",
-		callback = function(args)
-			if tonumber(args.match) == M.winnr and vim.api.nvim_buf_is_valid(M.bufnr) then
-				vim.api.nvim_buf_delete(M.bufnr, { force = true })
-				M.bufnr = nil
-				M.winnr = nil
-			end
-		end,
-	})
+	return editor.bufnr
 end
 
 M.edit_deps = function()
@@ -103,9 +123,9 @@ M.edit_deps = function()
 		table.insert(content, ln)
 	end
 
-	open(bufname, content, function()
+	open(string.format("deps:%s", branch), bufname, content, function(bufnr)
 		local new_content = {}
-		for _, ln in ipairs(vim.api.nvim_buf_get_lines(M.bufnr, 0, -1, false)) do
+		for _, ln in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
 			if ln:find("^#") == nil and ln:find("^$") == nil then
 				for _, pat in ipairs(recognized) do
 					if ln:find(pat) then
@@ -120,7 +140,7 @@ M.edit_deps = function()
 		tracking.series.prerequisites = new_content
 		local written, write_err = git.write_branch_tracking_data(branch, tracking)
 		if written then
-			vim.api.nvim_set_option_value("modified", false, { buf = M.bufnr })
+			vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
 		else
 			notify_error(write_err)
 		end
@@ -142,11 +162,11 @@ M.edit_cover = function()
 	if description == nil then
 		return notify_error(description_err)
 	end
-	open(bufname, description, function()
-		local new_content = table.concat(vim.api.nvim_buf_get_lines(M.bufnr, 0, -1, false), "\n")
+	open(string.format("cover:%s", branch), bufname, description, function(bufnr)
+		local new_content = table.concat(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), "\n")
 		local written, write_err = git.write_branch_description(branch, new_content)
 		if written then
-			vim.api.nvim_set_option_value("modified", false, { buf = M.bufnr })
+			vim.api.nvim_set_option_value("modified", false, { buf = bufnr })
 		else
 			notify_error(write_err)
 		end
