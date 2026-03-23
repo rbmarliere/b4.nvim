@@ -22,15 +22,17 @@ local set_log_level = function(log_level)
 end
 
 local set_options = function(options)
+	options = vim.tbl_deep_extend("force", {}, options or {})
 	if options.log_level then
 		options.log_level = set_log_level(options.log_level)
 	end
-	M.options = vim.tbl_deep_extend("force", {}, defaults, options or {})
+	M.options = vim.tbl_deep_extend("force", {}, defaults, options)
 end
 
 local set_commands = function()
 	local terminal = require("b4.terminal")
 	local core = require("b4.core")
+	pcall(vim.api.nvim_del_user_command, "B4")
 	vim.api.nvim_create_user_command("B4", function(params)
 		if params.args == "prep --edit-cover" then
 			return core.edit_cover()
