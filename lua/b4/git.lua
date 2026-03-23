@@ -15,24 +15,24 @@ local get_error = function(stderr, fallback)
 end
 
 M.get_current_branch = function()
-	local ret, stdout, stderr = cmd.git("rev-parse", "--abbrev-ref", "HEAD")
-	if ret ~= 0 or stdout == nil or stdout[1] == nil then
-		local err = get_error(stderr, "could not determine current branch")
+	local result = cmd.run_git({ "rev-parse", "--abbrev-ref", "HEAD" })
+	if result.code ~= 0 or result.stdout == nil or result.stdout[1] == nil then
+		local err = get_error(result.stderr, "could not determine current branch")
 		log.error(err)
 		return nil, err
 	end
-	return stdout[1]
+	return result.stdout[1]
 end
 
 M.read_branch_config = function(branch, config)
 	local key = string.format("branch.%s.%s", branch, config)
-	local ret, stdout, stderr = cmd.git("config", "get", key)
-	if ret ~= 0 or stdout == nil then
-		local err = string.format("could not read `%s`: %s", key, get_error(stderr, "git config failed"))
+	local result = cmd.run_git({ "config", "get", key })
+	if result.code ~= 0 or result.stdout == nil then
+		local err = string.format("could not read `%s`: %s", key, get_error(result.stderr, "git config failed"))
 		log.error(err)
 		return nil, err
 	end
-	return stdout
+	return result.stdout
 end
 
 M.read_branch_tracking = function(branch)
@@ -54,9 +54,9 @@ M.read_branch_tracking_data = function(branch)
 end
 
 M.write_branch_tracking = function(branch, tracking)
-	local ret, stdout, stderr = cmd.git("config", "set", string.format("branch.%s.b4-tracking", branch), tracking)
-	if ret ~= 0 then
-		local err = get_error(stderr, "could not update b4 tracking")
+	local result = cmd.run_git({ "config", "set", string.format("branch.%s.b4-tracking", branch), tracking })
+	if result.code ~= 0 then
+		local err = get_error(result.stderr, "could not update b4 tracking")
 		log.error(err)
 		return false, err
 	end
@@ -82,9 +82,9 @@ M.write_branch_description = function(branch, description)
 		log.error("Refusing to write empty branch description")
 		return false, "Refusing to write empty branch description"
 	end
-	local ret, stdout, stderr = cmd.git("config", "set", string.format("branch.%s.description", branch), description)
-	if ret ~= 0 then
-		local err = get_error(stderr, "could not update branch description")
+	local result = cmd.run_git({ "config", "set", string.format("branch.%s.description", branch), description })
+	if result.code ~= 0 then
+		local err = get_error(result.stderr, "could not update branch description")
 		log.error(err)
 		return false, err
 	end
@@ -92,13 +92,13 @@ M.write_branch_description = function(branch, description)
 end
 
 M.is_prep_managed = function(branch)
-	local ret, stdout, stderr = cmd.git("config", "get", string.format("branch.%s.b4-prep-cover-strategy", branch))
-	if ret ~= 0 then
+	local result = cmd.run_git({ "config", "get", string.format("branch.%s.b4-prep-cover-strategy", branch) })
+	if result.code ~= 0 then
 		log.error("This is not a prep-managed branch.")
-		log.debug(get_error(stderr, "git config failed"))
+		log.debug(get_error(result.stderr, "git config failed"))
 		return false
 	end
-	if stdout and stdout[1] ~= "branch-description" then
+	if result.stdout and result.stdout[1] ~= "branch-description" then
 		log.error("Only 'branch-description' b4-prep-cover-strategy is supported.")
 		return false
 	end

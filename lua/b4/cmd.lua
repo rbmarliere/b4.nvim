@@ -2,12 +2,12 @@ local M = {}
 local log = require("b4.log")
 local job = require("plenary.job")
 
-local cmd = function(cmd, ...)
-	log.debug("running:", cmd, ...)
-	local args = { ... }
+local run = function(command, args)
+	args = args or {}
+	log.debug("running:", command, unpack(args))
 	local stderr = {}
 	local stdout, ret = job:new({
-		command = cmd,
+		command = command,
 		args = args,
 		cwd = vim.loop.cwd(),
 		on_stderr = function(_, data)
@@ -18,19 +18,28 @@ local cmd = function(cmd, ...)
 			log.debug("stdout:", vim.inspect(j:result()))
 			log.debug("stderr:", vim.inspect(j:stderr_result()))
 			if ret ~= 0 then
-				log.error("`", cmd, args, "` exited with", ret)
+				log.error("`", command, args, "` exited with", ret)
 			end
 		end,
 	}):sync()
-	return ret, stdout, stderr
+	return {
+		command = command,
+		args = args,
+		code = ret,
+		stdout = stdout or {},
+		stderr = stderr,
+		ok = ret == 0,
+	}
 end
 
-M.git = function(...)
-	return cmd("git", ...)
+M.run = run
+
+M.run_git = function(args)
+	return run("git", args)
 end
 
-M.b4 = function(...)
-	return cmd("b4", ...)
+M.run_b4 = function(args)
+	return run("b4", args)
 end
 
 return M
