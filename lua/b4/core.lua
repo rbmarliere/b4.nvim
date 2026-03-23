@@ -1,7 +1,6 @@
 local M = {}
 local config = require("b4.config")
 local git = require("b4.git")
-local cmd = require("b4.cmd")
 local log = require("b4.log")
 
 M.bufnr = nil
@@ -84,36 +83,20 @@ local open = function(bufname, lines, callback)
 	})
 end
 
-local is_prep_managed = function(branch)
-	local ret, stdout, stderr = cmd.git("config", string.format("branch.%s.b4-prep-cover-strategy", branch))
-	if stdout and stdout[1] ~= "branch-description" then
-		log.error("Only 'branch-description' b4-prep-cover-strategy is supported.")
-		return false
-	end
-	if ret > 0 then
-		log.error("This is not a prep-managed branch.")
-	end
-	return ret == 0
-end
-
 M.edit_deps = function()
 	-- TODO support other strategies (e.g. if "commit", tracking is kept in the commit aswell)
 	local branch, branch_err = git.get_current_branch()
 	if branch == nil then
 		return notify_error(branch_err)
 	end
-	if not is_prep_managed(branch) then
+	if not git.is_prep_managed(branch) then
 		return
 	end
 	local bufname = string.format("B4 Prerequisites (%s)", branch)
 
-	local tracking_json, tracking_err = git.read_branch_tracking(branch)
-	if tracking_json == nil then
+	local tracking, tracking_err = git.read_branch_tracking_data(branch)
+	if tracking == nil then
 		return notify_error(tracking_err)
-	end
-	local ok, tracking = pcall(vim.json.decode, table.concat(tracking_json))
-	if not ok then
-		return notify_error(string.format("could not decode b4 tracking for `%s`: %s", branch, tracking))
 	end
 	local content = tracking.series.prerequisites or {}
 	for _, ln in ipairs(DEPS_HELPER) do
@@ -135,7 +118,7 @@ M.edit_deps = function()
 			::next::
 		end
 		tracking.series.prerequisites = new_content
-		local written, write_err = git.write_branch_tracking(branch, vim.json.encode(tracking))
+		local written, write_err = git.write_branch_tracking_data(branch, tracking)
 		if written then
 			vim.api.nvim_set_option_value("modified", false, { buf = M.bufnr })
 		else
@@ -151,7 +134,7 @@ M.edit_cover = function()
 	if branch == nil then
 		return notify_error(branch_err)
 	end
-	if not is_prep_managed(branch) then
+	if not git.is_prep_managed(branch) then
 		return
 	end
 	local bufname = string.format("B4 Cover Letter (%s)", branch)
