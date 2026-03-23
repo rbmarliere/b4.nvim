@@ -29,17 +29,29 @@ local set_options = function(options)
 	M.options = vim.tbl_deep_extend("force", {}, defaults, options)
 end
 
+local is_prep_editor_cmd = function(fargs, action)
+	return #fargs == 2 and fargs[1] == "prep" and fargs[2] == action
+end
+
+local shell_join = function(argv)
+	local cmd = {}
+	for _, arg in ipairs(argv) do
+		table.insert(cmd, vim.fn.shellescape(arg))
+	end
+	return table.concat(cmd, " ")
+end
+
 local set_commands = function()
 	local terminal = require("b4.terminal")
 	local core = require("b4.core")
 	pcall(vim.api.nvim_del_user_command, "B4")
 	vim.api.nvim_create_user_command("B4", function(params)
-		if params.args == "prep --edit-cover" then
+		if is_prep_editor_cmd(params.fargs, "--edit-cover") then
 			return core.edit_cover()
-		elseif params.args == "prep --edit-deps" then
+		elseif is_prep_editor_cmd(params.fargs, "--edit-deps") then
 			return core.edit_deps()
 		end
-		terminal.run("b4 " .. params.args)
+		terminal.run(shell_join(vim.list_extend({ "b4" }, params.fargs)))
 	end, { nargs = "*" })
 end
 
