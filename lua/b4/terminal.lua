@@ -4,6 +4,7 @@ local config = require("b4.config")
 M.bufnr = nil
 M.winnr = nil
 M.job_id = nil
+local ctrl_u = "\021"
 
 local scroll_to_bottom = function()
 	local info = vim.api.nvim_get_mode()
@@ -62,7 +63,7 @@ M.run = function(cmd)
 		})
 	end
 	vim.api.nvim_buf_call(M.bufnr, scroll_to_bottom)
-	vim.fn.chansend(M.job_id, cmd .. "\n")
+	vim.fn.chansend(M.job_id, ctrl_u .. cmd .. "\n")
 	vim.api.nvim_set_current_win(M.winnr)
 end
 
